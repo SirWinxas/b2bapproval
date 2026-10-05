@@ -95,9 +95,11 @@ class B2bapproval extends Module
      */
     private function createPendingGroup()
     {
+        // getValue() ya limita a una fila internamente: no añadir LIMIT aquí
+        // (un LIMIT explícito produce "... LIMIT 1 LIMIT 1" y error de sintaxis).
         $existing = (int) Db::getInstance()->getValue(
             'SELECT gl.`id_group` FROM `' . _DB_PREFIX_ . 'group_lang` gl
-             WHERE gl.`name` = \'' . pSQL('Pendiente') . '\' LIMIT 1'
+             WHERE gl.`name` = \'' . pSQL('Pendiente') . '\''
         );
         if ($existing) {
             return $existing;
