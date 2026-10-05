@@ -1,0 +1,11 @@
+Tu cuenta ha sido aprobada
+
+Hola {firstname} {lastname},
+
+Te damos la bienvenida. Tu cuenta ha sido aprobada y ya puedes iniciar sesión y consultar el catálogo.
+
+Iniciar sesión: {login_url}
+
+Gracias por confiar en nosotros.
+
+{shop_name} - {shop_url}

@@ -1,0 +1,11 @@
+Nuevo registro pendiente de aprobación
+
+Se ha registrado un nuevo cliente que está pendiente de aprobación:
+
+Nombre: {firstname} {lastname}
+Email: {email}
+Empresa: {company}
+
+Revísalo en Clientes -> Aprobación B2B.
+
+{shop_name} - {shop_url}

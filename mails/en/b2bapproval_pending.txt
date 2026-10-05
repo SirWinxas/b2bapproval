@@ -1,0 +1,11 @@
+New registration pending approval
+
+A new customer has registered and is awaiting approval:
+
+Name: {firstname} {lastname}
+Email: {email}
+Company: {company}
+
+Review it in Customers -> Aprobación B2B.
+
+{shop_name} - {shop_url}

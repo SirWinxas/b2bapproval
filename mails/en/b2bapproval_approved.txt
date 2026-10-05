@@ -1,0 +1,11 @@
+Your account has been approved
+
+Hello {firstname} {lastname},
+
+Welcome! Your account has been approved and you can now log in and browse the catalog.
+
+Log in: {login_url}
+
+Thank you for your trust.
+
+{shop_name} - {shop_url}
