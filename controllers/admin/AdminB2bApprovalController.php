@@ -23,8 +23,10 @@ class AdminB2bApprovalController extends ModuleAdminController
 
         $idPending = (int) Configuration::get('B2BAPPROVAL_PENDING_GROUP');
 
-        // Solo clientes pendientes: inactivos y con el grupo pendiente por defecto
-        $this->_select = '';
+        // Solo clientes pendientes: inactivos y con el grupo pendiente por defecto.
+        // Nota: NO asignar $this->_select (ni siquiera ''): AdminController::getList
+        // hace isset($this->_select) y una cadena vacía añade una coma colgante
+        // antes del FROM, rompiendo el SQL.
         $this->_where = ' AND a.`active` = 0 AND a.`deleted` = 0 AND a.`is_guest` = 0'
             . ' AND a.`id_default_group` = ' . $idPending
             . Shop::addSqlRestriction(Shop::SHARE_CUSTOMER, 'a');
