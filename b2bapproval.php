@@ -304,13 +304,26 @@ class B2bapproval extends Module
     // =========================================================================
 
     /**
-     * Reemplaza todos los grupos de un cliente por uno solo (queries directas)
+     * Reemplaza todos los grupos de un cliente por uno solo (queries directas).
+     *
+     * El DELETE + INSERT se ejecutan de forma atómica: si el INSERT falla
+     * después del DELETE, se revierte y el cliente no queda sin ningún grupo.
+     *
+     * @param int  $idCustomer
+     * @param int  $idGroup
+     * @param bool $useTransaction false cuando la transacción la gestiona el
+     *                             llamante (p. ej. al aprobar junto con la activación)
+     * @return bool true solo si ambas operaciones tuvieron éxito
      */
-    public function setCustomerGroup($idCustomer, $idGroup)
+    public function setCustomerGroup($idCustomer, $idGroup, $useTransaction = true)
     {
         $idCustomer = (int) $idCustomer;
         $idGroup = (int) $idGroup;
         $db = Db::getInstance();
+
+        if ($useTransaction) {
+            $db->execute('START TRANSACTION');
+        }
 
         $ok = $db->execute(
             'DELETE FROM `' . _DB_PREFIX_ . 'customer_group` WHERE `id_customer` = ' . $idCustomer
@@ -319,6 +332,10 @@ class B2bapproval extends Module
             'INSERT INTO `' . _DB_PREFIX_ . 'customer_group` (`id_customer`, `id_group`)
              VALUES (' . $idCustomer . ', ' . $idGroup . ')'
         );
+
+        if ($useTransaction) {
+            $db->execute($ok ? 'COMMIT' : 'ROLLBACK');
+        }
 
         return (bool) $ok;
     }

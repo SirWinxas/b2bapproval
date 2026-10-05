@@ -138,42 +138,59 @@ class AdminB2bApprovalController extends ModuleAdminController
             return;
         }
 
+        // Activación y cambio de grupo en una sola transacción: o ambas cosas,
+        // o ninguna. Evita dejar al cliente activo pero sin ningún grupo.
+        $db = Db::getInstance();
+        $committed = false;
+
         try {
+            $db->execute('START TRANSACTION');
+
             $customer->active = 1;
             $customer->id_default_group = $idApproved;
 
-            if (!$customer->update()) {
-                $this->errors[] = $this->l('No se pudo actualizar el cliente.');
+            $ok = $customer->update()
+                && $this->module->setCustomerGroup((int) $customer->id, $idApproved, false);
+
+            if (!$ok) {
+                $db->execute('ROLLBACK');
+                $this->errors[] = $this->l('No se pudo aprobar el cliente (activación o asignación de grupo); no se ha aplicado ningún cambio.');
                 return;
             }
 
-            $this->module->setCustomerGroup((int) $customer->id, $idApproved);
-
-            if ((int) Configuration::get('B2BAPPROVAL_EMAIL_CUSTOMER')) {
-                $sent = $this->module->sendModuleMail(
-                    (int) $customer->id_lang,
-                    'b2bapproval_approved',
-                    'Tu cuenta ha sido aprobada',
-                    [
-                        '{firstname}' => $customer->firstname,
-                        '{lastname}' => $customer->lastname,
-                        '{login_url}' => $this->context->link->getPageLink('authentication', true, (int) $customer->id_lang),
-                    ],
-                    $customer->email,
-                    $customer->firstname . ' ' . $customer->lastname
-                );
-                if (!$sent) {
-                    $this->warnings[] = $this->l('El cliente se ha aprobado, pero no se pudo enviar el email.');
-                }
+            $db->execute('COMMIT');
+            $committed = true;
+        } catch (\Throwable $e) {
+            if (!$committed) {
+                $db->execute('ROLLBACK');
             }
+            $this->errors[] = $this->l('Error al aprobar el cliente: ') . $e->getMessage();
+            return;
+        }
 
-            $this->confirmations[] = sprintf(
-                $this->l('Cliente %s aprobado correctamente.'),
+        // La aprobación ya está confirmada en BD; el email es un extra no crítico.
+        if ((int) Configuration::get('B2BAPPROVAL_EMAIL_CUSTOMER')) {
+            $sent = $this->module->sendModuleMail(
+                (int) $customer->id_lang,
+                'b2bapproval_approved',
+                'Tu cuenta ha sido aprobada',
+                [
+                    '{firstname}' => $customer->firstname,
+                    '{lastname}' => $customer->lastname,
+                    '{login_url}' => $this->context->link->getPageLink('authentication', true, (int) $customer->id_lang),
+                ],
+                $customer->email,
                 $customer->firstname . ' ' . $customer->lastname
             );
-        } catch (\Throwable $e) {
-            $this->errors[] = $this->l('Error al aprobar el cliente: ') . $e->getMessage();
+            if (!$sent) {
+                $this->warnings[] = $this->l('El cliente se ha aprobado, pero no se pudo enviar el email.');
+            }
         }
+
+        $this->confirmations[] = sprintf(
+            $this->l('Cliente %s aprobado correctamente.'),
+            $customer->firstname . ' ' . $customer->lastname
+        );
     }
 
     /**
