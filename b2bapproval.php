@@ -41,12 +41,18 @@ class B2bapproval extends Module
             return false;
         }
 
-        $idPendingGroup = $this->createPendingGroup();
+        $idPendingGroup = $this->getOrCreateGroup('Pendiente');
         if (!$idPendingGroup) {
             return false;
         }
 
+        $idRejectedGroup = $this->getOrCreateGroup('Rechazado');
+        if (!$idRejectedGroup) {
+            return false;
+        }
+
         $ok = Configuration::updateValue('B2BAPPROVAL_PENDING_GROUP', (int) $idPendingGroup)
+            && Configuration::updateValue('B2BAPPROVAL_REJECTED_GROUP', (int) $idRejectedGroup)
             && Configuration::updateValue('B2BAPPROVAL_APPROVED_GROUP', (int) Configuration::get('PS_CUSTOMER_GROUP'))
             && Configuration::updateValue('B2BAPPROVAL_ADMIN_EMAIL', (string) Configuration::get('PS_SHOP_EMAIL'))
             && Configuration::updateValue('B2BAPPROVAL_NOTIFY_ADMIN', 1)
@@ -77,6 +83,7 @@ class B2bapproval extends Module
     {
         $keys = [
             'B2BAPPROVAL_PENDING_GROUP',
+            'B2BAPPROVAL_REJECTED_GROUP',
             'B2BAPPROVAL_APPROVED_GROUP',
             'B2BAPPROVAL_ADMIN_EMAIL',
             'B2BAPPROVAL_NOTIFY_ADMIN',
@@ -89,17 +96,22 @@ class B2bapproval extends Module
     }
 
     /**
-     * Crea el grupo "Pendiente" (o reutiliza uno existente con ese nombre)
+     * Devuelve el id de un grupo por nombre, creándolo si no existe.
      *
+     * La búsqueda se restringe al idioma por defecto de la tienda para no
+     * emparejar por casualidad la traducción de otro grupo con el mismo texto.
+     *
+     * @param string $name nombre del grupo (también usado como etiqueta en cada idioma)
      * @return int id del grupo, 0 si falla
      */
-    private function createPendingGroup()
+    private function getOrCreateGroup($name)
     {
         // getValue() ya limita a una fila internamente: no añadir LIMIT aquí
         // (un LIMIT explícito produce "... LIMIT 1 LIMIT 1" y error de sintaxis).
         $existing = (int) Db::getInstance()->getValue(
             'SELECT gl.`id_group` FROM `' . _DB_PREFIX_ . 'group_lang` gl
-             WHERE gl.`name` = \'' . pSQL('Pendiente') . '\''
+             WHERE gl.`name` = \'' . pSQL($name) . '\'
+               AND gl.`id_lang` = ' . (int) Configuration::get('PS_LANG_DEFAULT')
         );
         if ($existing) {
             return $existing;
@@ -113,7 +125,7 @@ class B2bapproval extends Module
             : 0;
         $group->name = [];
         foreach (Language::getLanguages(false) as $lang) {
-            $group->name[(int) $lang['id_lang']] = 'Pendiente';
+            $group->name[(int) $lang['id_lang']] = $name;
         }
 
         if (!$group->save()) {
@@ -121,6 +133,31 @@ class B2bapproval extends Module
         }
 
         return (int) $group->id;
+    }
+
+    /**
+     * Devuelve el id del grupo "Rechazado", creándolo (y guardándolo en
+     * configuración) si falta. Permite que instalaciones anteriores a esta
+     * versión obtengan el grupo sin necesidad de reinstalar el módulo.
+     *
+     * @return int id del grupo, 0 si falla
+     */
+    public function getRejectedGroupId()
+    {
+        $id = (int) Configuration::get('B2BAPPROVAL_REJECTED_GROUP');
+        if ($id) {
+            $group = new Group($id);
+            if (Validate::isLoadedObject($group)) {
+                return $id;
+            }
+        }
+
+        $id = (int) $this->getOrCreateGroup('Rechazado');
+        if ($id) {
+            Configuration::updateValue('B2BAPPROVAL_REJECTED_GROUP', $id);
+        }
+
+        return $id;
     }
 
     /**

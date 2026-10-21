@@ -10,13 +10,13 @@ Módulo para PrestaShop 8.x pensado para tiendas cerradas B2B / mayoristas. Los 
   - Se avisa por email al administrador (opcional).
 - En **Clientes → Aprobación B2B** se listan los clientes pendientes con dos acciones:
   - **Aprobar**: activa al cliente, lo mueve al grupo de aprobación configurado y le envía un email (opcional).
-  - **Rechazar**: el cliente permanece desactivado (no se elimina) y sigue apareciendo en la lista de pendientes.
+  - **Rechazar**: el cliente se desactiva y se mueve al grupo "Rechazado" (no se elimina), por lo que deja de aparecer en la lista de pendientes.
 
 ## Instalación
 
 1. Copia la carpeta `b2bapproval` en `modules/` (o comprímela en ZIP e impórtala desde Módulos).
 2. Instala el módulo desde el back office.
-3. En la instalación se crea el grupo **Pendiente** (sin precios visibles, sin descuento). Si ya existe un grupo con ese nombre, se reutiliza.
+3. En la instalación se crean los grupos **Pendiente** y **Rechazado** (sin precios visibles, sin descuento). Si ya existe un grupo con ese nombre, se reutiliza.
 
 ## Configuración
 
@@ -29,7 +29,7 @@ Desde la página de configuración del módulo:
 
 ## Desinstalación
 
-Se eliminan el menú y la configuración. **El grupo "Pendiente" no se borra**, porque puede contener clientes; elimínalo manualmente si ya no hace falta.
+Se eliminan el menú y la configuración. **Los grupos "Pendiente" y "Rechazado" no se borran**, porque pueden contener clientes; elimínalos manualmente si ya no hacen falta.
 
 ## Notas
 

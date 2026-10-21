@@ -112,7 +112,7 @@ class AdminB2bApprovalController extends ModuleAdminController
     public function postProcess()
     {
         if (Tools::getIsset('approveb2b') || Tools::getIsset('rejectb2b')) {
-            if (method_exists($this, 'access') && !$this->access('edit')) {
+            if (!method_exists($this, 'access') || !$this->access('edit')) {
                 $this->errors[] = $this->l('No tienes permisos para realizar esta acción.');
                 return parent::postProcess();
             }
@@ -164,7 +164,7 @@ class AdminB2bApprovalController extends ModuleAdminController
             $committed = true;
         } catch (\Throwable $e) {
             if (!$committed) {
-                $db->execute('ROLLBACK');
+                $this->safeRollback($db);
             }
             $this->errors[] = $this->l('Error al aprobar el cliente: ') . $e->getMessage();
             return;
@@ -196,22 +196,64 @@ class AdminB2bApprovalController extends ModuleAdminController
     }
 
     /**
-     * Rechazar = mantener el cliente desactivado (no se elimina).
+     * Rechazar = cliente desactivado y movido al grupo "Rechazado" (no se
+     * elimina). Al salir del grupo pendiente deja de aparecer en esta lista,
+     * de modo que los rechazados no se mezclan con los que faltan por decidir.
      */
     private function rejectCustomer(Customer $customer)
     {
+        $idRejected = (int) $this->module->getRejectedGroupId();
+        if (!$idRejected) {
+            $this->errors[] = $this->l('No se pudo preparar el grupo de rechazados.');
+            return;
+        }
+
+        // Desactivación y cambio de grupo en una sola transacción: o ambas
+        // cosas, o ninguna (igual que la aprobación).
+        $db = Db::getInstance();
+        $committed = false;
+
         try {
+            $db->execute('START TRANSACTION');
+
             $customer->active = 0;
-            if (!$customer->update()) {
-                $this->errors[] = $this->l('No se pudo actualizar el cliente.');
+            $customer->id_default_group = $idRejected;
+
+            $ok = $customer->update()
+                && $this->module->setCustomerGroup((int) $customer->id, $idRejected, false);
+
+            if (!$ok) {
+                $db->execute('ROLLBACK');
+                $this->errors[] = $this->l('No se pudo rechazar el cliente; no se ha aplicado ningún cambio.');
                 return;
             }
-            $this->confirmations[] = sprintf(
-                $this->l('Cliente %s rechazado: permanece desactivado.'),
-                $customer->firstname . ' ' . $customer->lastname
-            );
+
+            $db->execute('COMMIT');
+            $committed = true;
         } catch (\Throwable $e) {
+            if (!$committed) {
+                $this->safeRollback($db);
+            }
             $this->errors[] = $this->l('Error al rechazar el cliente: ') . $e->getMessage();
+            return;
+        }
+
+        $this->confirmations[] = sprintf(
+            $this->l('Cliente %s rechazado: desactivado y movido al grupo de rechazados.'),
+            $customer->firstname . ' ' . $customer->lastname
+        );
+    }
+
+    /**
+     * Ejecuta ROLLBACK sin dejar que un fallo del propio ROLLBACK oculte la
+     * excepción original que se está gestionando en el bloque catch.
+     */
+    private function safeRollback(Db $db)
+    {
+        try {
+            $db->execute('ROLLBACK');
+        } catch (\Throwable $e) {
+            // Se conserva la excepción original; el ROLLBACK fallido se ignora.
         }
     }
 }
